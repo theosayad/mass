@@ -1,18 +1,21 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Search, MapPin, Church as ChurchIcon, Calendar, Info, Filter, X, Navigation, Globe, Phone } from 'lucide-react';
 import { LEBANON_CHURCHES } from './data/mockData';
 import { Church, Rite, SearchFilters } from './types';
 
+const DEFAULT_FILTERS: SearchFilters = {
+  query: '',
+  city: 'All',
+  rite: 'All',
+  day: 'All',
+};
+
 const App: React.FC = () => {
-  const [filters, setFilters] = useState<SearchFilters>({
-    query: '',
-    city: 'All',
-    rite: 'All',
-    day: 'All'
-  });
+  const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
   const [activeTab, setActiveTab] = useState<'search' | 'info'>('search');
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const filteredChurches = useMemo(() => {
     return LEBANON_CHURCHES.filter(church => {
@@ -28,10 +31,37 @@ const App: React.FC = () => {
 
   const uniqueCities = Array.from(new Set(LEBANON_CHURCHES.map(c => c.city))).sort();
   const ritesList = Object.values(Rite);
+  const hasActiveFilters = filters.query.trim() !== '' || filters.city !== 'All' || filters.rite !== 'All' || filters.day !== 'All';
 
   const getNextMass = (church: Church) => {
     return church.schedule.find(m => m.day === 'Sunday') || church.schedule[0];
   };
+
+  useEffect(() => {
+    if (!selectedChurch) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedChurch(null);
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedChurch]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeoutId = window.setTimeout(() => setToast(null), 2500);
+    return () => window.clearTimeout(timeoutId);
+  }, [toast]);
+
+  const clearAllFilters = () => setFilters(DEFAULT_FILTERS);
+  const clearFilter = (key: keyof SearchFilters) => setFilters(prev => ({ ...prev, [key]: DEFAULT_FILTERS[key] }));
 
   return (
     <div className="flex flex-col md:flex-row min-h-screen bg-slate-50 text-slate-900">
@@ -68,10 +98,10 @@ const App: React.FC = () => {
         <div className="p-6 border-t border-slate-100">
           <p className="text-[10px] text-slate-400 font-bold uppercase mb-4">Quick Links</p>
           <div className="space-y-3">
-            <a href="#" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
+            <a href="./parish-support.html" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
               <Globe size={14} /> Parish Support
             </a>
-            <a href="#" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
+            <a href="./emergency-contacts.html" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
               <Phone size={14} /> Emergency Contacts
             </a>
           </div>
@@ -91,18 +121,27 @@ const App: React.FC = () => {
                 <ChurchIcon className="text-blue-600" size={24} />
                 <h1 className="font-serif font-bold text-lg">Mass Times Lebanon</h1>
               </div>
-              <button onClick={() => setActiveTab('info')} className="text-slate-400">
+              <button
+                onClick={() => setActiveTab(prev => (prev === 'info' ? 'search' : 'info'))}
+                className="text-slate-400 hover:text-blue-600 transition-colors"
+                aria-label={activeTab === 'info' ? 'Open directory' : 'Open about'}
+                type="button"
+              >
                 <Info size={20} />
               </button>
             </div>
 
             {activeTab === 'search' && (
               <div className="flex-1 max-w-xl relative group">
+                <label className="sr-only" htmlFor="search-input">Search churches</label>
                 <input 
+                  id="search-input"
                   type="text"
                   placeholder="Search churches, cities, or districts..."
                   className="w-full bg-slate-100 border-none rounded-2xl py-3 pl-12 pr-4 text-sm focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all outline-none"
                   value={filters.query}
+                  autoComplete="off"
+                  spellCheck={false}
                   onChange={(e) => setFilters(prev => ({ ...prev, query: e.target.value }))}
                 />
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-600 transition-colors" size={20} />
@@ -112,25 +151,31 @@ const App: React.FC = () => {
             {/* Desktop Filters Row */}
             {activeTab === 'search' && (
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 md:pb-0">
+                <label className="sr-only" htmlFor="city-filter">City</label>
                 <select 
+                  id="city-filter"
                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 outline-none hover:border-blue-300 focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
                   value={filters.city}
                   onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
                 >
                   <option value="All">All Cities</option>
-                  {uniqueCities.map(city => <option key={city} value={city}>{city}</option>)}
+	                  {uniqueCities.map(city => <option key={city} value={city}>{city}</option>)}
                 </select>
                 
+                <label className="sr-only" htmlFor="rite-filter">Rite</label>
                 <select 
+                  id="rite-filter"
                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 outline-none hover:border-blue-300 focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
                   value={filters.rite}
                   onChange={(e) => setFilters(prev => ({ ...prev, rite: e.target.value as Rite }))}
                 >
                   <option value="All">All Rites</option>
-                  {ritesList.map(rite => <option key={rite} value={rite}>{rite}</option>)}
+	                  {ritesList.map(rite => <option key={rite} value={rite}>{rite}</option>)}
                 </select>
 
+                <label className="sr-only" htmlFor="day-filter">Day</label>
                 <select 
+                  id="day-filter"
                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-600 outline-none hover:border-blue-300 focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
                   value={filters.day}
                   onChange={(e) => setFilters(prev => ({ ...prev, day: e.target.value }))}
@@ -138,21 +183,90 @@ const App: React.FC = () => {
                   <option value="All">Any Day</option>
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(d => (
                     <option key={d} value={d}>{d}</option>
-                  ))}
+	                  ))}
                 </select>
+
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="shrink-0 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+                    aria-label="Clear all filters"
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
             )}
           </div>
         </header>
 
         {/* Content Scroll Area */}
-        <main className="flex-1 px-4 md:px-8 py-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 px-4 md:px-8 py-8 pb-28 md:pb-8 max-w-7xl mx-auto w-full">
           {activeTab === 'search' ? (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-serif font-bold text-slate-800">Church Directory</h2>
+                <div className="space-y-1">
+                  <h2 className="text-xl font-serif font-bold text-slate-800">Church Directory</h2>
+                  <p className="text-xs text-slate-500">
+                    Browse by city, rite, or day—then open a parish for details.
+                  </p>
+                </div>
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{filteredChurches.length} Results</span>
               </div>
+
+              {hasActiveFilters && (
+                <div className="flex flex-wrap gap-2">
+                  {filters.query.trim() !== '' && (
+                    <button
+                      type="button"
+                      onClick={() => clearFilter('query')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                      aria-label="Clear search query"
+                    >
+                      <Search size={14} />
+                      “{filters.query.trim()}”
+                      <X size={14} className="text-slate-400" />
+                    </button>
+                  )}
+                  {filters.city !== 'All' && (
+                    <button
+                      type="button"
+                      onClick={() => clearFilter('city')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                      aria-label="Clear city filter"
+                    >
+                      <MapPin size={14} />
+                      {filters.city}
+                      <X size={14} className="text-slate-400" />
+                    </button>
+                  )}
+                  {filters.rite !== 'All' && (
+                    <button
+                      type="button"
+                      onClick={() => clearFilter('rite')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                      aria-label="Clear rite filter"
+                    >
+                      <ChurchIcon size={14} />
+                      {filters.rite}
+                      <X size={14} className="text-slate-400" />
+                    </button>
+                  )}
+                  {filters.day !== 'All' && (
+                    <button
+                      type="button"
+                      onClick={() => clearFilter('day')}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-blue-300 hover:text-blue-700 transition-colors"
+                      aria-label="Clear day filter"
+                    >
+                      <Calendar size={14} />
+                      {filters.day}
+                      <X size={14} className="text-slate-400" />
+                    </button>
+                  )}
+                </div>
+              )}
               
               {filteredChurches.length === 0 ? (
                 <div className="text-center py-24 bg-white rounded-3xl border border-dashed border-slate-200">
@@ -161,14 +275,25 @@ const App: React.FC = () => {
                   </div>
                   <h3 className="text-lg font-bold text-slate-900">No parishes found</h3>
                   <p className="text-slate-500 text-sm mt-2 max-w-xs mx-auto">Try adjusting your filters or search keywords to find what you're looking for.</p>
+                  {hasActiveFilters && (
+                    <button
+                      type="button"
+                      onClick={clearAllFilters}
+                      className="mt-6 inline-flex items-center justify-center px-5 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                    >
+                      Clear filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {filteredChurches.map(church => (
-                    <div 
+                    <button
+                      type="button"
                       key={church.id}
                       onClick={() => setSelectedChurch(church)}
-                      className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group flex flex-col h-full"
+                      className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group flex flex-col h-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                      aria-label={`Open details for ${church.name}`}
                     >
                       <div className="h-48 overflow-hidden relative">
                         <img 
@@ -185,7 +310,7 @@ const App: React.FC = () => {
                       </div>
                       
                       <div className="p-5 flex-1 flex flex-col">
-                        <h3 className="text-lg font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors mb-2 line-clamp-1">{church.name}</h3>
+                        <h3 className="text-lg font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors mb-2 truncate">{church.name}</h3>
                         
                         <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
                           <MapPin size={14} className="text-blue-400" />
@@ -205,7 +330,7 @@ const App: React.FC = () => {
                           </div>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -243,9 +368,15 @@ const App: React.FC = () => {
                   <p className="text-blue-100 mb-6 leading-relaxed">
                     Mass times are subject to change during liturgical seasons and holidays. We encourage parish administrators to keep their data updated.
                   </p>
-                  <button className="bg-white text-blue-900 px-8 py-3 rounded-2xl font-bold hover:bg-blue-50 transition-colors shadow-lg">
+                  <a
+                    href="https://wa.me/971563764536?text=Hi%20Theo%2C%20I%E2%80%99d%20like%20to%20register%20my%20parish%20on%20Mass%20Times%20Lebanon."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center bg-white text-blue-900 px-8 py-3 rounded-2xl font-bold hover:bg-blue-50 transition-colors shadow-lg"
+                    aria-label="Register your parish on WhatsApp"
+                  >
                     Register Your Parish
-                  </button>
+                  </a>
                 </div>
               </div>
             </div>
@@ -257,9 +388,9 @@ const App: React.FC = () => {
           <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 text-slate-400 text-sm">
             <p>© 2024 Mass Times Lebanon. Supporting Christian Communities.</p>
             <div className="flex gap-6">
-              <a href="#" className="hover:text-blue-600 transition-colors">Privacy</a>
-              <a href="#" className="hover:text-blue-600 transition-colors">Terms</a>
-              <a href="#" className="hover:text-blue-600 transition-colors">Support</a>
+              <a href="./privacy.html" className="hover:text-blue-600 transition-colors">Privacy</a>
+              <a href="./terms.html" className="hover:text-blue-600 transition-colors">Terms</a>
+              <a href="./support.html" className="hover:text-blue-600 transition-colors">Support</a>
             </div>
           </div>
         </footer>
@@ -285,15 +416,25 @@ const App: React.FC = () => {
 
       {/* Details Modal - Desktop Centered / Mobile Bottom Sheet */}
       {selectedChurch && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+        <div
+          className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-6 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Details for ${selectedChurch.name}`}
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setSelectedChurch(null);
+          }}
+        >
           <div 
             className="bg-white w-full max-w-2xl rounded-t-3xl md:rounded-[40px] max-h-[92vh] md:max-h-[85vh] overflow-hidden flex flex-col shadow-2xl animate-in slide-in-from-bottom-full md:slide-in-from-bottom-20 duration-500"
           >
             <div className="relative h-64 md:h-80 flex-shrink-0">
-              <img src={selectedChurch.imageUrl} className="w-full h-full object-cover" />
+              <img src={selectedChurch.imageUrl} alt={selectedChurch.name} className="w-full h-full object-cover" />
               <button 
                 onClick={() => setSelectedChurch(null)}
                 className="absolute top-6 right-6 bg-black/30 backdrop-blur-md text-white p-2.5 rounded-full hover:bg-black/50 transition-all border border-white/20"
+                aria-label="Close details"
+                type="button"
               >
                 <X size={24} />
               </button>
@@ -344,21 +485,48 @@ const App: React.FC = () => {
 
               <div className="flex flex-col md:flex-row gap-4 pt-4">
                 <button 
-                  onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${selectedChurch.coordinates.lat},${selectedChurch.coordinates.lng}`, '_blank')}
+                  onClick={() => window.open(
+                    `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedChurch.coordinates.lat},${selectedChurch.coordinates.lng}`)}`,
+                    '_blank',
+                    'noopener,noreferrer',
+                  )}
                   className="flex-1 bg-blue-600 text-white font-bold py-4 rounded-2xl shadow-xl shadow-blue-200 flex items-center justify-center gap-2 hover:bg-blue-700 hover:shadow-2xl transition-all"
+                  type="button"
                 >
                   <Navigation size={20} />
                   Open in Maps
                 </button>
                 <button 
                   className="flex-1 bg-slate-100 text-slate-600 font-bold py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-slate-200 transition-all"
-                  onClick={() => {/* Mock share functionality */}}
+                  type="button"
+                  onClick={async () => {
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedChurch.coordinates.lat},${selectedChurch.coordinates.lng}`)}`;
+                    const text = `${selectedChurch.name}\n${selectedChurch.address}, ${selectedChurch.city}\n${mapsUrl}`;
+
+                    try {
+                      if (navigator.share) {
+                        await navigator.share({ title: selectedChurch.name, text, url: mapsUrl });
+                        setToast('Shared.');
+                        return;
+                      }
+                      await navigator.clipboard.writeText(text);
+                      setToast('Copied details to clipboard.');
+                    } catch {
+                      setToast('Could not share right now.');
+                    }
+                  }}
                 >
                   Share Details
                 </button>
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed z-[110] left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 bg-slate-900 text-white text-sm font-semibold px-4 py-2.5 rounded-2xl shadow-2xl">
+          {toast}
         </div>
       )}
     </div>
