@@ -16,6 +16,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'search' | 'info'>('search');
   const [selectedChurch, setSelectedChurch] = useState<Church | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [showChurchesMissingTimes, setShowChurchesMissingTimes] = useState(false);
 
   const filteredChurches = useMemo(() => {
     return LEBANON_CHURCHES.filter(church => {
@@ -34,8 +35,22 @@ const App: React.FC = () => {
   const hasActiveFilters = filters.query.trim() !== '' || filters.city !== 'All' || filters.rite !== 'All' || filters.day !== 'All';
 
   const getNextMass = (church: Church) => {
-    return church.schedule.find(m => m.day === 'Sunday') || church.schedule[0];
+    if (church.schedule.length === 0) return null;
+    return church.schedule.find(m => m.day === 'Sunday') || church.schedule[0] || null;
   };
+
+  const filteredChurchesWithTimes = useMemo(
+    () => filteredChurches.filter(church => church.schedule.length > 0),
+    [filteredChurches],
+  );
+
+  const filteredChurchesWithoutTimes = useMemo(
+    () => filteredChurches.filter(church => church.schedule.length === 0),
+    [filteredChurches],
+  );
+
+  const visibleResultsCount =
+    filteredChurchesWithTimes.length + (showChurchesMissingTimes ? filteredChurchesWithoutTimes.length : 0);
 
   useEffect(() => {
     if (!selectedChurch) return;
@@ -205,15 +220,20 @@ const App: React.FC = () => {
         <main className="flex-1 px-4 md:px-8 py-8 pb-28 md:pb-8 max-w-7xl mx-auto w-full">
           {activeTab === 'search' ? (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <h2 className="text-xl font-serif font-bold text-slate-800">Church Directory</h2>
-                  <p className="text-xs text-slate-500">
-                    Browse by city, rite, or day—then open a parish for details.
-                  </p>
-                </div>
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{filteredChurches.length} Results</span>
-              </div>
+	              <div className="flex items-center justify-between">
+	                <div className="space-y-1">
+	                  <h2 className="text-xl font-serif font-bold text-slate-800">Church Directory</h2>
+	                  <p className="text-xs text-slate-500">
+	                    Browse by city, rite, or day—then open a parish for details.
+	                  </p>
+	                </div>
+	                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+	                  {visibleResultsCount} Results
+	                  {!showChurchesMissingTimes && filters.day === 'All' && filteredChurchesWithoutTimes.length > 0 && (
+	                    <span className="ml-2 text-slate-300">(+{filteredChurchesWithoutTimes.length} missing times)</span>
+	                  )}
+	                </span>
+	              </div>
 
               {hasActiveFilters && (
                 <div className="flex flex-wrap gap-2">
@@ -286,8 +306,16 @@ const App: React.FC = () => {
                   )}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {filteredChurches.map(church => (
+                <div className="space-y-8">
+                  <section className="space-y-4">
+                    <div className="flex items-end justify-between gap-4">
+                      <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">With Mass Times</h3>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                        {filteredChurchesWithTimes.length}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                      {filteredChurchesWithTimes.map(church => (
                     <button
                       type="button"
                       key={church.id}
@@ -323,15 +351,136 @@ const App: React.FC = () => {
                               <span className="text-[10px] font-bold text-slate-400 uppercase">Primary Mass</span>
                               <Calendar size={12} className="text-blue-500" />
                             </div>
+                            {getNextMass(church) ? (
                             <div className="flex items-center justify-between">
-                              <span className="text-sm font-bold text-slate-700">{getNextMass(church).day}</span>
-                              <span className="text-sm font-black text-blue-600">{getNextMass(church).time}</span>
+                              <span className="text-sm font-bold text-slate-700">{getNextMass(church)!.day}</span>
+                              <span className="text-sm font-black text-blue-600">{getNextMass(church)!.time}</span>
                             </div>
+                            ) : (
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-bold text-slate-700">Not available</span>
+                                <span className="text-sm font-black text-blue-600">—</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
                     </button>
-                  ))}
+                      ))}
+                    </div>
+                  </section>
+
+	                  {filters.day === 'All' && filteredChurchesWithoutTimes.length > 0 && (
+	                    <section className="space-y-4">
+	                      <div className="flex items-end justify-between gap-4">
+	                        <div className="space-y-1">
+	                          <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">Needs Mass Times</h3>
+	                          <p className="text-xs text-slate-500">
+	                            These parishes are listed, but schedules haven’t been added yet.
+	                          </p>
+	                        </div>
+	                        <div className="flex items-center gap-3">
+	                          <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+	                            {filteredChurchesWithoutTimes.length}
+	                          </span>
+	                          <button
+	                            type="button"
+	                            onClick={() => setShowChurchesMissingTimes(prev => !prev)}
+	                            className="shrink-0 bg-slate-100 text-slate-700 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 transition-colors"
+	                            aria-expanded={showChurchesMissingTimes}
+	                            aria-label={showChurchesMissingTimes ? 'Hide churches missing mass times' : 'Show churches missing mass times'}
+	                          >
+	                            {showChurchesMissingTimes ? 'Hide' : 'Show'}
+	                          </button>
+	                        </div>
+	                      </div>
+
+	                      {!showChurchesMissingTimes ? (
+	                        <div className="bg-slate-50 rounded-3xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+	                          <div>
+	                            <p className="text-sm font-bold text-slate-900">Hidden by default</p>
+	                            <p className="text-sm text-slate-600 mt-1">
+	                              {filteredChurchesWithoutTimes.length} parishes are listed but missing verified Mass times.
+	                            </p>
+	                          </div>
+	                          <button
+	                            type="button"
+	                            onClick={() => setShowChurchesMissingTimes(true)}
+	                            className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-white text-slate-800 font-bold hover:bg-slate-100 transition-colors border border-slate-200"
+	                          >
+	                            Show parishes
+	                          </button>
+	                        </div>
+	                      ) : (
+	                        <>
+	                          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 opacity-90">
+	                            {filteredChurchesWithoutTimes.map(church => (
+	                              <button
+	                                type="button"
+	                                key={church.id}
+	                                onClick={() => setSelectedChurch(church)}
+	                                className="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group flex flex-col h-full text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+	                                aria-label={`Open details for ${church.name}`}
+	                              >
+	                                <div className="h-48 overflow-hidden relative">
+	                                  <img
+	                                    src={church.imageUrl}
+	                                    alt={church.name}
+	                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 grayscale-[20%]"
+	                                  />
+	                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-50 group-hover:opacity-70 transition-opacity"></div>
+	                                  <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+	                                    <span className="text-[10px] text-white font-bold bg-blue-600/90 backdrop-blur-md px-2 py-1 rounded-lg uppercase tracking-tighter">
+	                                      {church.rite}
+	                                    </span>
+	                                    <span className="text-[10px] text-white font-black bg-amber-600/90 backdrop-blur-md px-2 py-1 rounded-lg uppercase tracking-tighter">
+	                                      Missing times
+	                                    </span>
+	                                  </div>
+	                                </div>
+
+	                                <div className="p-5 flex-1 flex flex-col">
+	                                  <h3 className="text-lg font-bold text-slate-900 leading-snug group-hover:text-blue-600 transition-colors mb-2 truncate">{church.name}</h3>
+	                                  <div className="flex items-center gap-1.5 text-xs text-slate-500 mb-4">
+	                                    <MapPin size={14} className="text-blue-400" />
+	                                    <span className="truncate">{church.city}, {church.district}</span>
+	                                  </div>
+
+	                                  <div className="mt-auto">
+	                                    <div className="p-3 bg-amber-50 rounded-2xl border border-amber-200">
+	                                      <div className="flex items-center justify-between mb-1">
+	                                        <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Help needed</span>
+	                                        <Calendar size={12} className="text-amber-700" />
+	                                      </div>
+	                                      <div className="flex items-center justify-between">
+	                                        <span className="text-sm font-bold text-amber-900">Mass times not added</span>
+	                                        <span className="text-xs font-black text-amber-700">Open</span>
+	                                      </div>
+	                                    </div>
+	                                  </div>
+	                                </div>
+	                              </button>
+	                            ))}
+	                          </div>
+
+	                          <div className="bg-white rounded-3xl border border-slate-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+	                            <div>
+	                              <p className="text-sm font-bold text-slate-900">Know the schedule?</p>
+	                              <p className="text-sm text-slate-600">Message us and we’ll add it.</p>
+	                            </div>
+	                            <a
+	                              href="https://wa.me/971563764536?text=Hi%20Theo%2C%20I%20have%20Mass%20times%20to%20add%20for%20a%20parish%20in%20Lebanon.%0A%0AParish%20name%3A%0ACity%3A%0ARite%3A%0ASchedule%20(day/time/language)%3A"
+	                              target="_blank"
+	                              rel="noopener noreferrer"
+	                              className="inline-flex items-center justify-center px-6 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+	                            >
+	                              Send on WhatsApp
+	                            </a>
+	                          </div>
+	                        </>
+	                      )}
+	                    </section>
+	                  )}
                 </div>
               )}
             </div>
@@ -469,17 +618,36 @@ const App: React.FC = () => {
                     <Calendar size={20} className="text-blue-600" />
                     Weekly Schedule
                   </h3>
-                  <div className="space-y-2">
-                    {selectedChurch.schedule.map((mass, idx) => (
-                      <div key={idx} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-black text-slate-400 uppercase">{mass.day}</span>
-                          <span className="text-[10px] font-bold text-blue-600 px-1.5 py-0.5 bg-blue-50 rounded">{mass.language}</span>
+                  {selectedChurch.schedule.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedChurch.schedule.map((mass, idx) => (
+                        <div key={idx} className="flex flex-col p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-black text-slate-400 uppercase">{mass.day}</span>
+                            <span className="text-[10px] font-bold text-blue-600 px-1.5 py-0.5 bg-blue-50 rounded">{mass.language}</span>
+                          </div>
+                          <span className="text-lg font-black text-slate-900">{mass.time}</span>
                         </div>
-                        <span className="text-lg font-black text-slate-900">{mass.time}</span>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-3">
+                      <p className="text-sm font-bold text-amber-900">Mass times not added yet.</p>
+                      <p className="text-sm text-amber-800">
+                        If you know this parish schedule, message us and we’ll add it to the directory.
+                      </p>
+                      <a
+                        href={`https://wa.me/971563764536?text=${encodeURIComponent(
+                          `Hi Theo, I have Mass times to add for:\n\n${selectedChurch.name}\n${selectedChurch.city}\nRite: ${selectedChurch.rite}\n\nSchedule (day/time/language):`,
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center w-full px-5 py-3 rounded-2xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
+                      >
+                        Send schedule on WhatsApp
+                      </a>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -1,7 +1,8 @@
 
 import { Church, Rite } from '../types';
+import { MELKITE_CHURCHES_NEEDS_TIMES } from './melkiteNeedsTimes';
 
-export const LEBANON_CHURCHES: Church[] = [
+export const LEBANON_CHURCHES_WITH_TIMES: Church[] = [
   {
     id: '1',
     name: 'St. George Maronite Cathedral',
@@ -83,4 +84,15 @@ export const LEBANON_CHURCHES: Church[] = [
       { day: 'Sunday', time: '10:30', language: 'Arabic' }
     ]
   }
+];
+
+// Churches we want listed, but whose Mass times have not been added yet.
+// Keep schedules empty until verified.
+export const LEBANON_CHURCHES_NEEDS_TIMES: Church[] = [
+  ...MELKITE_CHURCHES_NEEDS_TIMES,
+];
+
+export const LEBANON_CHURCHES: Church[] = [
+  ...LEBANON_CHURCHES_WITH_TIMES,
+  ...LEBANON_CHURCHES_NEEDS_TIMES,
 ];
