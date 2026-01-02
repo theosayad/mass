@@ -1,0 +1,7 @@
+{
+  "name": "Mass Times Lebanon",
+  "description": "A comprehensive guide to Mass schedules across Lebanon, featuring smart AI search and location-based church discovery.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
