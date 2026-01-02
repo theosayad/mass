@@ -113,6 +113,9 @@ const App: React.FC = () => {
         <div className="p-6 border-t border-slate-100">
           <p className="text-[10px] text-slate-400 font-bold uppercase mb-4">Quick Links</p>
           <div className="space-y-3">
+            <a href="#/admin" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
+              <Info size={14} /> Admin
+            </a>
             <a href="./parish-support.html" className="flex items-center gap-2 text-xs text-slate-600 hover:text-blue-600">
               <Globe size={14} /> Parish Support
             </a>
@@ -581,13 +584,13 @@ const App: React.FC = () => {
               <img src={selectedChurch.imageUrl} alt={selectedChurch.name} className="w-full h-full object-cover" />
               <button 
                 onClick={() => setSelectedChurch(null)}
-                className="absolute top-6 right-6 bg-black/30 backdrop-blur-md text-white p-2.5 rounded-full hover:bg-black/50 transition-all border border-white/20"
+                className="absolute top-6 right-6 z-20 bg-black/30 backdrop-blur-md text-white p-2.5 rounded-full hover:bg-black/50 transition-all border border-white/20"
                 aria-label="Close details"
                 type="button"
               >
                 <X size={24} />
               </button>
-              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/40 to-transparent pointer-events-none"></div>
               <div className="absolute bottom-0 left-0 right-0 p-8">
                 <span className="text-blue-600 font-black text-xs uppercase tracking-[0.2em] mb-2 block">{selectedChurch.rite}</span>
                 <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900 leading-tight">{selectedChurch.name}</h2>
